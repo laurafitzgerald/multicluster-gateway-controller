@@ -23,7 +23,7 @@ LOCAL_SETUP_DIR="$(dirname "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="${SCRIPT_DIR}/../bin"
 
-export KIND_BIN="${BIN_DIR}/kind"
+
 export KUSTOMIZE_BIN="${BIN_DIR}/kustomize"
 export HELM_BIN="${BIN_DIR}/helm"
 export YQ_BIN="${BIN_DIR}/yq"
@@ -60,7 +60,7 @@ kindCreateCluster() {
   local service_cidr="100.9${idx}.0.0/16"
   local dns_domain="${cluster}.local"
   export KIND_EXPERIMENTAL_DOCKER_NETWORK=mgc
-  cat <<EOF | ${KIND_BIN} create cluster --name ${cluster} --config=-
+  cat <<EOF | kind create cluster --name ${cluster} --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -93,8 +93,8 @@ nodes:
     protocol: TCP
 EOF
 mkdir -p ./tmp/kubeconfigs
-${KIND_BIN} get kubeconfig --name ${cluster} > ./tmp/kubeconfigs/${cluster}.kubeconfig
-${KIND_BIN} export kubeconfig --name ${cluster} --kubeconfig ./tmp/kubeconfigs/internal/${cluster}.kubeconfig --internal
+kind get kubeconfig --name ${cluster} > ./tmp/kubeconfigs/${cluster}.kubeconfig
+kind export kubeconfig --name ${cluster} --kubeconfig ./tmp/kubeconfigs/internal/${cluster}.kubeconfig --internal
 kindGenExternalKubeconfig
 }
 
@@ -145,7 +145,7 @@ makeSecretForCluster() {
   fi
 
   local tmpfile=$(mktemp /tmp/kubeconfig-internal.XXXXXX)
-  ${KIND_BIN} export kubeconfig -q $internalFlag --name ${clusterName} --kubeconfig ${tmpfile}
+  kind export kubeconfig -q $internalFlag --name ${clusterName} --kubeconfig ${tmpfile}
 
   makeSecretForKubeconfig $tmpfile kind-$clusterName $targetClusterName
   rm -f $tmpfile
@@ -184,10 +184,10 @@ setConfig() {
 
 cleanClusters() {
 	# Delete existing kind clusters
-	clusterCount=$(${KIND_BIN} get clusters | grep ${KIND_CLUSTER_PREFIX} | wc -l)
+	clusterCount=$(kind get clusters | grep ${KIND_CLUSTER_PREFIX} | wc -l)
 	if ! [[ $clusterCount =~ "0" ]] ; then
 		echo "Deleting previous kind clusters."
-		${KIND_BIN} get clusters | grep ${KIND_CLUSTER_PREFIX} | xargs ${KIND_BIN} delete clusters
+		$kind get clusters | grep ${KIND_CLUSTER_PREFIX} | xargs kind delete clusters
 	fi
 }
 
