@@ -26,7 +26,6 @@ BIN_DIR="${SCRIPT_DIR}/../bin"
 
 export KUSTOMIZE_BIN="${BIN_DIR}/kustomize"
 export HELM_BIN="${BIN_DIR}/helm"
-export YQ_BIN="${BIN_DIR}/yq"
 export ISTIOCTL_BIN="${BIN_DIR}/istioctl"
 export OPERATOR_SDK_BIN="${BIN_DIR}/operator-sdk"
 export CLUSTERADM_BIN="${BIN_DIR}/clusteradm"
@@ -44,8 +43,8 @@ kindGenExternalKubeconfig() {
   EXTERNAL_KUBECONFIG=./tmp/kubeconfigs/external/${cluster}.kubeconfig
   cp ./tmp/kubeconfigs/${cluster}.kubeconfig ${EXTERNAL_KUBECONFIG}
   master_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${cluster}-control-plane" | head -n 1)
-  ${YQ_BIN} -i ".clusters[0].cluster.server = \"https://${master_ip}:6443\"" "${EXTERNAL_KUBECONFIG}"
-  ${YQ_BIN} -i "(.. | select(. == \"kind-${cluster}\")) = \"${cluster}\"" "${EXTERNAL_KUBECONFIG}"
+  yq -i ".clusters[0].cluster.server = \"https://${master_ip}:6443\"" "${EXTERNAL_KUBECONFIG}"
+  yq -i "(.. | select(. == \"kind-${cluster}\")) = \"${cluster}\"" "${EXTERNAL_KUBECONFIG}"
   chmod a+r "${EXTERNAL_KUBECONFIG}"
 }
 
@@ -154,23 +153,23 @@ makeSecretForCluster() {
 setNamespacedName() {
   namespace=$1
   name=$2
-  cat /dev/stdin | ${YQ_BIN} '.metadata.namespace="'$namespace'"' | ${YQ_BIN} '.metadata.name="'$name'"'
+  cat /dev/stdin | yq '.metadata.namespace="'$namespace'"' | ${YQ_BIN} '.metadata.name="'$name'"'
 }
 
 setLabel() {
   label=$1
   value=$2
-  cat /dev/stdin | ${YQ_BIN} '.metadata.labels."'$label'"="'$value'"'
+  cat /dev/stdin | yq '.metadata.labels."'$label'"="'$value'"'
 }
 
 setConfig() {
   expr=$1
 
   cp /dev/stdin /tmp/doctmp
-  config=$(cat /tmp/doctmp | ${YQ_BIN} '.stringData.config')
-  updatedConfig=$(echo $config | ${YQ_BIN} -P $expr -o=json)
+  config=$(cat /tmp/doctmp | yq '.stringData.config')
+  updatedConfig=$(echo $config | yq -P $expr -o=json)
 
-  cat /tmp/doctmp | cfg=$updatedConfig ${YQ_BIN} '.stringData.config=strenv(cfg)'
+  cat /tmp/doctmp | cfg=$updatedConfig yq '.stringData.config=strenv(cfg)'
 }
 
 ### This section is copied from ./clusterUtils for script install, if you update this please also update the file
@@ -187,7 +186,7 @@ cleanClusters() {
 	clusterCount=$(kind get clusters | grep ${KIND_CLUSTER_PREFIX} | wc -l)
 	if ! [[ $clusterCount =~ "0" ]] ; then
 		echo "Deleting previous kind clusters."
-		$kind get clusters | grep ${KIND_CLUSTER_PREFIX} | xargs kind delete clusters
+		kind get clusters | grep ${KIND_CLUSTER_PREFIX} | xargs kind delete clusters
 	fi
 }
 
@@ -388,7 +387,7 @@ initController() {
 }
 
 
-cleanup
+#cleanup
 
 port80=9090
 port443=8445
