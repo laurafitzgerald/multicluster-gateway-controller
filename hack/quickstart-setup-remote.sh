@@ -25,7 +25,6 @@ BIN_DIR="${SCRIPT_DIR}/../bin"
 
 
 
-export HELM_BIN="${BIN_DIR}/helm"
 export ISTIOCTL_BIN="${BIN_DIR}/istioctl"
 export OPERATOR_SDK_BIN="${BIN_DIR}/operator-sdk"
 export CLUSTERADM_BIN="${BIN_DIR}/clusteradm"
@@ -237,7 +236,7 @@ deployIngressController () {
   clusterName=${1}
   kubectl config use-context kind-${clusterName}
   echo "Deploying Ingress controller to ${clusterName}"
-  kustomize build ${INGRESS_NGINX_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${INGRESS_NGINX_KUSTOMIZATION_DIR} --enable-helm --helm-command helm | kubectl apply -f -
   echo "Waiting for deployments to be ready ..."
   kubectl -n ingress-nginx wait --timeout=600s --for=condition=Available deployments --all
 }
@@ -276,7 +275,7 @@ deployCertManager() {
 
   kubectl config use-context kind-${clusterName}
 
-  kustomize build ${CERT_MANAGER_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${CERT_MANAGER_KUSTOMIZATION_DIR} --enable-helm --helm-command helm | kubectl apply -f -
   echo "Waiting for Cert Manager deployments to be ready..."
   kubectl -n cert-manager wait --timeout=300s --for=condition=Available deployments --all
 
@@ -292,7 +291,7 @@ deployExternalDNS() {
 
   kubectl config use-context kind-${clusterName}
 
-  kustomize build ${EXTERNAL_DNS_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${EXTERNAL_DNS_KUSTOMIZATION_DIR} --enable-helm --helm-command helm | kubectl apply -f -
   echo "Waiting for External DNS deployments to be ready..."
   kubectl -n external-dns wait --timeout=300s --for=condition=Available deployments --all
 }
