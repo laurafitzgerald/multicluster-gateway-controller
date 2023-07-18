@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="${SCRIPT_DIR}/../bin"
 
 
-export KUSTOMIZE_BIN="${BIN_DIR}/kustomize"
+
 export HELM_BIN="${BIN_DIR}/helm"
 export ISTIOCTL_BIN="${BIN_DIR}/istioctl"
 export OPERATOR_SDK_BIN="${BIN_DIR}/operator-sdk"
@@ -237,7 +237,7 @@ deployIngressController () {
   clusterName=${1}
   kubectl config use-context kind-${clusterName}
   echo "Deploying Ingress controller to ${clusterName}"
-  ${KUSTOMIZE_BIN} build ${INGRESS_NGINX_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${INGRESS_NGINX_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
   echo "Waiting for deployments to be ready ..."
   kubectl -n ingress-nginx wait --timeout=600s --for=condition=Available deployments --all
 }
@@ -248,7 +248,7 @@ deployMetalLB () {
 
   kubectl config use-context kind-${clusterName}
   echo "Deploying MetalLB to ${clusterName}"
-  ${KUSTOMIZE_BIN} build ${METALLB_KUSTOMIZATION_DIR} | kubectl apply -f -
+  kustomize build ${METALLB_KUSTOMIZATION_DIR} | kubectl apply -f -
   echo "Waiting for deployments to be ready ..."
   kubectl -n metallb-system wait --for=condition=ready pod --selector=app=metallb --timeout=300s
   echo "Creating MetalLB AddressPool"
@@ -276,7 +276,7 @@ deployCertManager() {
 
   kubectl config use-context kind-${clusterName}
 
-  ${KUSTOMIZE_BIN} build ${CERT_MANAGER_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${CERT_MANAGER_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
   echo "Waiting for Cert Manager deployments to be ready..."
   kubectl -n cert-manager wait --timeout=300s --for=condition=Available deployments --all
 
@@ -292,7 +292,7 @@ deployExternalDNS() {
 
   kubectl config use-context kind-${clusterName}
 
-  ${KUSTOMIZE_BIN} build ${EXTERNAL_DNS_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
+  kustomize build ${EXTERNAL_DNS_KUSTOMIZATION_DIR} --enable-helm --helm-command ${HELM_BIN} | kubectl apply -f -
   echo "Waiting for External DNS deployments to be ready..."
   kubectl -n external-dns wait --timeout=300s --for=condition=Available deployments --all
 }
@@ -311,7 +311,7 @@ installGatewayAPI() {
   kubectl config use-context kind-${clusterName}
   echo "Installing Gateway API in ${clusterName}"
 
-  ${KUSTOMIZE_BIN} build ${GATEWAY_API_KUSTOMIZATION_DIR} | kubectl apply -f -
+  kustomize build ${GATEWAY_API_KUSTOMIZATION_DIR} | kubectl apply -f -
 }
 
 deployOLM(){
@@ -380,10 +380,10 @@ initController() {
     echo "Initialize local dev setup for the controller on ${clusterName}"
 
     # Add the mgc CRDs
-    ${KUSTOMIZE_BIN} build ${MCG_REPO}/config/crd | kubectl apply -f -
+    kustomize build ${MCG_REPO}/config/crd | kubectl apply -f -
     # Create the mgc ns and dev managed zone
     # TODO: New way of creating namespace, configMap and secret
-    ${KUSTOMIZE_BIN} --reorder none --load-restrictor LoadRestrictionsNone build config/local-setup/controller | kubectl apply -f -
+    kustomize --reorder none --load-restrictor LoadRestrictionsNone build config/local-setup/controller | kubectl apply -f -
 }
 
 
