@@ -282,7 +282,15 @@ deployCertManager() {
   kubectl delete validatingWebhookConfiguration mgc-cert-manager-webhook
   kubectl delete mutatingWebhookConfiguration mgc-cert-manager-webhook
   # Apply the default glbc-ca issuer
-  kubectl create -n cert-manager -f ./config/default/issuer.yaml
+  cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: glbc-ca
+  namespace: cert-manager
+spec:
+  selfSigned: {}
+EOF
 }
 
 deployExternalDNS() {
@@ -382,7 +390,7 @@ initController() {
     kustomize build ${MCG_REPO}/config/crd | kubectl apply -f -
     # Create the mgc ns and dev managed zone
     # TODO: New way of creating namespace, configMap and secret
-    kustomize --reorder none --load-restrictor LoadRestrictionsNone build config/local-setup/controller | kubectl apply -f -
+    kustomize --reorder none --load-restrictor LoadRestrictionsNone build ${MCG_REPO}/config/local-setup/controller | kubectl apply -f -
 }
 
 
