@@ -24,194 +24,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="${SCRIPT_DIR}/../bin"
 
 
-
+export KIND_BIN=kind
+export YQ_BIN=yq
 export ISTIOCTL_BIN="${BIN_DIR}/istioctl"
 export OPERATOR_SDK_BIN="${BIN_DIR}/operator-sdk"
 export CLUSTERADM_BIN="${BIN_DIR}/clusteradm"
 export SUBCTL_BIN="${BIN_DIR}/subctl"
 
-### This section is copied from ./kindUtils for script install, if you update this please also update the file
-
-# shellcheck shell=bash
-
-kindGenExternalKubeconfig() {
-  # Generate a kubeconfig that uses the docker bridge network IP address of the cluster
-  # This is required for using the subctl cmd (for submariner)
-  local master_ip
-  mkdir -p ./tmp/kubeconfigs/external/
-  EXTERNAL_KUBECONFIG=./tmp/kubeconfigs/external/${cluster}.kubeconfig
-  cp ./tmp/kubeconfigs/${cluster}.kubeconfig ${EXTERNAL_KUBECONFIG}
-  master_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${cluster}-control-plane" | head -n 1)
-  yq -i ".clusters[0].cluster.server = \"https://${master_ip}:6443\"" "${EXTERNAL_KUBECONFIG}"
-  yq -i "(.. | select(. == \"kind-${cluster}\")) = \"${cluster}\"" "${EXTERNAL_KUBECONFIG}"
-  chmod a+r "${EXTERNAL_KUBECONFIG}"
-}
-
-kindCreateCluster() {
-  local cluster=$1;
-  local port80=$2;
-  local port443=$3;
-  local idx=$4
-  # Each cluster should have a different service & pod network.
-  # This allows a flat network to be established if submariner is used
-  local pod_cidr="10.24${idx}.0.0/16"
-  local service_cidr="100.9${idx}.0.0/16"
-  local dns_domain="${cluster}.local"
-  export KIND_EXPERIMENTAL_DOCKER_NETWORK=mgc
-  cat <<EOF | kind create cluster --name ${cluster} --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  podSubnet: ${pod_cidr}
-  serviceSubnet: ${service_cidr}
-nodes:
-- role: control-plane
-  image: kindest/node:v1.26.0
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
-  - |
-    apiVersion: kubeadm.k8s.io/v1beta2
-    kind: ClusterConfiguration
-    metadata:
-      name: config
-    networking:
-      podSubnet: ${pod_cidr}
-      serviceSubnet: ${service_cidr}
-      dnsDomain: ${dns_domain}
-  extraPortMappings:
-  - containerPort: 80
-    hostPort: ${port80}
-    protocol: TCP
-  - containerPort: 443
-    hostPort: ${port443}
-    protocol: TCP
-EOF
-mkdir -p ./tmp/kubeconfigs
-kind get kubeconfig --name ${cluster} > ./tmp/kubeconfigs/${cluster}.kubeconfig
-kind export kubeconfig --name ${cluster} --kubeconfig ./tmp/kubeconfigs/internal/${cluster}.kubeconfig --internal
-kindGenExternalKubeconfig
-}
-
-### This section is copied from ./clusterUtils for script install, if you update this please also update the file
-# shellcheck shell=bash
-
-makeSecretForKubeconfig() {
-  local kubeconfig=$1
-  local clusterName=$2
-  local targetClusterName=$3
-
-  local server=$(kubectl --kubeconfig ${kubeconfig} config view -o jsonpath="{$.clusters[?(@.name == '${clusterName}')].cluster.server}")
-  local caData=$(kubectl --kubeconfig ${kubeconfig} config view --raw -o jsonpath="{$.clusters[?(@.name == '${clusterName}')].cluster.certificate-authority-data}")
-  local certData=$(kubectl --kubeconfig ${kubeconfig} config view --raw -o jsonpath="{$.users[?(@.name == '${clusterName}')].user.client-certificate-data}")
-  local keyData=$(kubectl --kubeconfig ${kubeconfig} config view --raw -o jsonpath="{$.users[?(@.name == '${clusterName}')].user.client-key-data}")
-
-  cat <<EOF
-kind: Secret
-apiVersion: v1
-metadata:
-  name: ""
-  namespace: ""
-stringData:
-  config: >-
-    {
-      "tlsClientConfig":
-        {
-          "insecure": true,
-          "caData": "${caData}",
-          "certData": "${certData}",
-          "keyData": "${keyData}"
-        }
-    }
-  name: ${targetClusterName}
-  server: ${server}
-type: Opaque
-EOF
-
-}
-
-makeSecretForCluster() {
-  local clusterName=$1
-  local targetClusterName=$2
-  local localAccess=$3
-
-  if [ "$localAccess" != "true" ]; then
-    internalFlag="--internal"
-  fi
-
-  local tmpfile=$(mktemp /tmp/kubeconfig-internal.XXXXXX)
-  kind export kubeconfig -q $internalFlag --name ${clusterName} --kubeconfig ${tmpfile}
-
-  makeSecretForKubeconfig $tmpfile kind-$clusterName $targetClusterName
-  rm -f $tmpfile
-}
-
-setNamespacedName() {
-  namespace=$1
-  name=$2
-  cat /dev/stdin | yq '.metadata.namespace="'$namespace'"' | ${YQ_BIN} '.metadata.name="'$name'"'
-}
-
-setLabel() {
-  label=$1
-  value=$2
-  cat /dev/stdin | yq '.metadata.labels."'$label'"="'$value'"'
-}
-
-setConfig() {
-  expr=$1
-
-  cp /dev/stdin /tmp/doctmp
-  config=$(cat /tmp/doctmp | yq '.stringData.config')
-  updatedConfig=$(echo $config | yq -P $expr -o=json)
-
-  cat /tmp/doctmp | cfg=$updatedConfig yq '.stringData.config=strenv(cfg)'
-}
-
-### This section is copied from ./clusterUtils for script install, if you update this please also update the file
-
-## TODO is this needed?
-#source "${LOCAL_SETUP_DIR}"/.argocdUtils
-
-
-### This section is copied from ./clusterUtils for script install, if you update this please also update the file
-# shellcheck shell=bash
-
-cleanClusters() {
-	# Delete existing kind clusters
-	clusterCount=$(kind get clusters | grep ${KIND_CLUSTER_PREFIX} | wc -l)
-	if ! [[ $clusterCount =~ "0" ]] ; then
-		echo "Deleting previous kind clusters."
-		kind get clusters | grep ${KIND_CLUSTER_PREFIX} | xargs kind delete clusters
-	fi
-}
-
-cleanNetwork() {
-  # Delete the network
-  echo "Deleting mgc network"
-  docker network rm mgc || true
-}
-
-stopProxies() {
-  if [[ -f /tmp/dashboard_pids ]]; then
-    echo "Stopping existing proxies"
-    while read p; do
-      kill $p || true
-    done </tmp/dashboard_pids
-    rm /tmp/dashboard_pids
-  fi
-}
-
-cleanup() {
-  stopProxies
-  cleanClusters
-  cleanNetwork
-}
-
-### End of replacements. #######
+source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.kindUtils)"
+source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.clusterUtils)"
+source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.cleanupUtils)"
 
 MCG_REPO="https://github.com/Kuadrant/multicluster-gateway-controller.git/"
 
@@ -394,7 +216,7 @@ initController() {
 }
 
 
-#cleanup
+cleanup
 
 port80=9090
 port443=8445
