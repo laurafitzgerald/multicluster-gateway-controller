@@ -35,19 +35,20 @@ source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/mult
 source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.clusterUtils)"
 source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.cleanupUtils)"
 
-MCG_REPO="https://github.com/Kuadrant/multicluster-gateway-controller.git/"
+MGC_REPO="https://github.com/Kuadrant/multicluster-gateway-controller.git/"
+
 
 KIND_CLUSTER_PREFIX="mgc-"
 KIND_CLUSTER_CONTROL_PLANE="${KIND_CLUSTER_PREFIX}control-plane"
 KIND_CLUSTER_WORKLOAD="${KIND_CLUSTER_PREFIX}workload"
 
-INGRESS_NGINX_KUSTOMIZATION_DIR=${MCG_REPO}/config/ingress-nginx
-METALLB_KUSTOMIZATION_DIR=${MCG_REPO}/config/metallb
-CERT_MANAGER_KUSTOMIZATION_DIR=${MCG_REPO}/config/cert-manager
-EXTERNAL_DNS_KUSTOMIZATION_DIR=${MCG_REPO}/config/external-dns
+INGRESS_NGINX_KUSTOMIZATION_DIR=${MGC_REPO}/config/ingress-nginx
+METALLB_KUSTOMIZATION_DIR=${MGC_REPO}/config/metallb
+CERT_MANAGER_KUSTOMIZATION_DIR=${MGC_REPO}/config/cert-manager
+EXTERNAL_DNS_KUSTOMIZATION_DIR=${MGC_REPO}/config/external-dns
 # TODO: use remote file with kubectl
 ISTIO_KUSTOMIZATION_DIR=${LOCAL_SETUP_DIR}/../config/istio/istio-operator.yaml
-GATEWAY_API_KUSTOMIZATION_DIR=${MCG_REPO}/config/gateway-api
+GATEWAY_API_KUSTOMIZATION_DIR=${MGC_REPO}/config/gateway-api
 
 # TODO: Is this used?
 TLS_CERT_PATH=${LOCAL_SETUP_DIR}/../config/webhook-setup/control/tls
@@ -209,10 +210,10 @@ initController() {
     echo "Initialize local dev setup for the controller on ${clusterName}"
 
     # Add the mgc CRDs
-    kustomize build ${MCG_REPO}/config/crd | kubectl apply -f -
+    kustomize build ${MGC_REPO}/config/crd | kubectl apply -f -
     # Create the mgc ns and dev managed zone
     # TODO: New way of creating namespace, configMap and secret
-    kustomize --reorder none --load-restrictor LoadRestrictionsNone build ${MCG_REPO}/config/local-setup/controller | kubectl apply -f -
+    kustomize --reorder none --load-restrictor LoadRestrictionsNone build ${MGC_REPO}/config/local-setup/controller | kubectl apply -f -
 }
 
 
