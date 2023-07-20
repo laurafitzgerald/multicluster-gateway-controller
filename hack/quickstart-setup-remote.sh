@@ -225,6 +225,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: ${KIND_CLUSTER_PREFIX}aws-credentials
+  namespace: multi-cluster-gateways
 type: Opaque
 stringData:
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -237,6 +238,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ${KIND_CLUSTER_PREFIX}controller-config
+  namespace: multi-cluster-gateways
 data:
   AWS_DNS_PUBLIC_ZONE_ID: ${AWS_DNS_PUBLIC_ZONE_ID}
   ZONE_ROOT_DOMAIN: ${ZONE_ROOT_DOMAIN}
@@ -248,6 +250,7 @@ apiVersion: kuadrant.io/v1alpha1
 kind: ManagedZone
 metadata:
   name: ${KIND_CLUSTER_PREFIX}dev-mz
+  namespace: multi-cluster-gateways
 spec:
   id: ${AWS_DNS_PUBLIC_ZONE_ID}
   domainName: ${ZONE_ROOT_DOMAIN}
