@@ -211,11 +211,88 @@ initController() {
 
     # Add the mgc CRDs
     kustomize build ${MGC_REPO}/config/crd | kubectl apply -f -
-    # Create the mgc ns and dev managed zone
-    # TODO: New way of creating namespace, configMap and secret
-    kustomize --reorder none --load-restrictor LoadRestrictionsNone build ${MGC_REPO}/config/local-setup/controller | kubectl apply -f -
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: multi-cluster-gateways
+EOF
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${KIND_CLUSTER_PREFIX}aws-credentials
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_REGION: ${AWS_REGION}
+EOF
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${KIND_CLUSTER_PREFIX}controller-config
+data:
+  AWS_DNS_PUBLIC_ZONE_ID: ${AWS_DNS_PUBLIC_ZONE_ID}
+  ZONE_ROOT_DOMAIN: ${ZONE_ROOT_DOMAIN}
+  LOG_LEVEL: "${LOG_LEVEL}"
+EOF
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: kuadrant.io/v1alpha1
+kind: ManagedZone
+metadata:
+  name: ${KIND_CLUSTER_PREFIX}dev-mz
+spec:
+  id: ${AWS_DNS_PUBLIC_ZONE_ID}
+  domainName: ${ZONE_ROOT_DOMAIN}
+  description: "Dev Managed Zone"
+  dnsProviderSecretRef:
+    name: ${KIND_CLUSTER_PREFIX}aws-credentials
+    namespace: multi-cluster-gateways
+    type: AWS
+EOF
 }
 
+
+# Prompt user for any required env vars that have not been set
+if [[ -z "${AWS_ACCESS_KEY_ID}" ]]; then
+  echo "Enter your AWS access key ID:"
+  read AWS_ACCESS_KEY_ID
+fi
+if [[ -z "${AWS_SECRET_ACCESS_KEY}" ]]; then
+  echo "Enter your AWS secret access key:"
+  read AWS_SECRET_ACCESS_KEY
+fi
+if [[ -z "${AWS_REGION}" ]]; then
+  echo "Enter an AWS region (e.g. eu-west-1):"
+  read AWS_REGION
+fi
+if [[ -z "${AWS_DNS_PUBLIC_ZONE_ID}" ]]; then
+  echo "Enter the Public Zone ID of your Route53 zone:"
+  read AWS_DNS_PUBLIC_ZONE_ID
+fi
+if [[ -z "${ZONE_ROOT_DOMAIN}" ]]; then
+  echo "Enter the root domain of your Route53 hosted zone (e.g. www.example.com):"
+  read ZONE_ROOT_DOMAIN
+fi
+
+# Default config
+if [[ -z "${LOG_LEVEL}" ]]; then
+  LOG_LEVEL=1
+fi
+if [[ -z "${OCM_SINGLE}" ]]; then
+  OCM_SINGLE=true
+fi
+if [[ -z "${MGC_WORKLOAD_CLUSTERS_COUNT}" ]]; then
+  MGC_WORKLOAD_CLUSTERS_COUNT=1
+fi
 
 cleanup
 
@@ -266,6 +343,7 @@ fi
 # Ensure the current context points to the control plane cluster
 kubectl config use-context kind-${KIND_CLUSTER_CONTROL_PLANE}
 
+# TODO: Get values from this file to create configMap
 # Create configmap with gateway parameters for clusters
 kubectl create configmap gateway-params \
   --from-file=params=config/samples/gatewayclass_params.json \
