@@ -345,8 +345,13 @@ fi
 # Ensure the current context points to the control plane cluster
 kubectl config use-context kind-${KIND_CLUSTER_CONTROL_PLANE}
 
-# TODO: Get values from this file to create configMap
 # Create configmap with gateway parameters for clusters
-kubectl create configmap gateway-params \
-  --from-file=params=config/samples/gatewayclass_params.json \
-  -n multi-cluster-gateways
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-params
+  namespace: multi-cluster-gateways
+data:
+  downstreamClass: istio
+EOF
