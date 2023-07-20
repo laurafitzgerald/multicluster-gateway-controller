@@ -16,12 +16,6 @@
 # limitations under the License.
 #
 
-LOCAL_SETUP_DIR="$(dirname "${BASH_SOURCE[0]}")"
-
-# shellcheck shell=bash
-### This section is copied from ./setupEnv for script install, if you update this please also update the file
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 export KIND_BIN=kind
 export YQ_BIN=yq
 
@@ -42,9 +36,6 @@ CERT_MANAGER_KUSTOMIZATION_DIR=${MGC_REPO}/config/cert-manager
 EXTERNAL_DNS_KUSTOMIZATION_DIR=${MGC_REPO}/config/external-dns
 GATEWAY_API_KUSTOMIZATION_DIR=${MGC_REPO}/config/gateway-api
 ISTIO_OPERATOR_URL=https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/config/istio/istio-operator.yaml
-
-# TODO: Is this used?
-TLS_CERT_PATH=${LOCAL_SETUP_DIR}/../config/webhook-setup/control/tls
 
 set -e pipefail
 
