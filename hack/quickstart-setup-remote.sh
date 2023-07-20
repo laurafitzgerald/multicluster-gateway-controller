@@ -21,15 +21,9 @@ LOCAL_SETUP_DIR="$(dirname "${BASH_SOURCE[0]}")"
 # shellcheck shell=bash
 ### This section is copied from ./setupEnv for script install, if you update this please also update the file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="${SCRIPT_DIR}/../bin"
-
 
 export KIND_BIN=kind
 export YQ_BIN=yq
-export ISTIOCTL_BIN="${BIN_DIR}/istioctl"
-export OPERATOR_SDK_BIN="${BIN_DIR}/operator-sdk"
-export CLUSTERADM_BIN="${BIN_DIR}/clusteradm"
-export SUBCTL_BIN="${BIN_DIR}/subctl"
 
 source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.kindUtils)"
 source /dev/stdin <<< "$(curl -s https://raw.githubusercontent.com/Kuadrant/multicluster-gateway-controller/main/hack/.clusterUtils)"
@@ -131,7 +125,7 @@ deployIstio() {
   echo "Deploying Istio to (${clusterName})"
 
   kubectl config use-context kind-${clusterName}
-  ${ISTIOCTL_BIN} operator init
+  istioctl operator init
 	kubectl apply -f ${ISTIO_OPERATOR_URL}
 }
 
@@ -149,27 +143,27 @@ deployOLM(){
   kubectl config use-context kind-${clusterName}
   echo "Installing OLM in ${clusterName}"
   
-  ${OPERATOR_SDK_BIN} olm install --timeout 6m0s
+  operator-sdk olm install --timeout 6m0s
 }
 
 deployOCMHub(){
   clusterName=${1}
   echo "installing the hub cluster in kind-(${clusterName}) "
 
-  ${CLUSTERADM_BIN} init --bundle-version='0.11.0' --wait --context kind-${clusterName}
+  clusteradm init --bundle-version='0.11.0' --wait --context kind-${clusterName}
   echo "PATCHING CLUSTERMANAGER: placement image patch to use amd64 image - See https://kubernetes.slack.com/archives/C01GE7YSUUF/p1685016272443249"
   kubectl patch clustermanager cluster-manager --type='merge' -p '{"spec":{"placementImagePullSpec":"quay.io/open-cluster-management/placement:v0.11.0-amd64"}}'
   echo "checking if cluster is single or multi"
   if [[ -n "${OCM_SINGLE}" ]]; then
     clusterName=kind-${KIND_CLUSTER_CONTROL_PLANE}
     echo "Found single cluster installing hub and spoke on the one cluster (${clusterName})"
-    join=$(${CLUSTERADM_BIN} get token --context ${clusterName} |  grep -o  'clusteradm.*--cluster-name')
-    ${BIN_DIR}/${join} ${clusterName} --bundle-version='0.11.0' --feature-gates=RawFeedbackJsonString=true --force-internal-endpoint-lookup --context ${clusterName} | grep clusteradm
+    join=$(clusteradm get token --context ${clusterName} |  grep -o  'clusteradm.*--cluster-name')
+    ${join} ${clusterName} --bundle-version='0.11.0' --feature-gates=RawFeedbackJsonString=true --force-internal-endpoint-lookup --context ${clusterName} | grep clusteradm
     echo "accepting OCM spoke cluster invite"
   
     max_retry=18
     counter=0
-    until ${CLUSTERADM_BIN} accept --clusters ${clusterName}
+    until clusteradm accept --clusters ${clusterName}
     do
       sleep 10
       [[ counter -eq $max_retry ]] && echo "Failed!" && exit 1
@@ -185,15 +179,15 @@ deployOCMSpoke(){
   clusterName=${1}
   echo "joining the spoke cluster to the hub cluster kind-(${KIND_CLUSTER_CONTROL_PLANE}),"
   kubectl config use-context kind-${KIND_CLUSTER_CONTROL_PLANE}
-  join=$(${CLUSTERADM_BIN} get token --context kind-${KIND_CLUSTER_CONTROL_PLANE} |  grep -o  'clusteradm.*--cluster-name')
+  join=$(clusteradm get token --context kind-${KIND_CLUSTER_CONTROL_PLANE} |  grep -o  'clusteradm.*--cluster-name')
   kubectl config use-context kind-${clusterName}
-  ${BIN_DIR}/${join} kind-${clusterName} --bundle-version='0.11.0' --feature-gates=RawFeedbackJsonString=true --force-internal-endpoint-lookup --context kind-${clusterName} | grep clusteradm
+  ${join} kind-${clusterName} --bundle-version='0.11.0' --feature-gates=RawFeedbackJsonString=true --force-internal-endpoint-lookup --context kind-${clusterName} | grep clusteradm
   echo "accepting OCM spoke cluster invite"
   kubectl config use-context kind-${KIND_CLUSTER_CONTROL_PLANE}
   
   max_retry=18
   counter=0
-  until ${CLUSTERADM_BIN} accept --clusters kind-${clusterName}
+  until clusteradm accept --clusters kind-${clusterName}
   do
      sleep 10
      [[ counter -eq $max_retry ]] && echo "Failed!" && exit 1
