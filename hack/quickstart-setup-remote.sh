@@ -248,6 +248,58 @@ EOF
 }
 
 
+echo "Verifying that pre-requisite binaries are present on the system."
+
+declare -a BINARY_NAMES=("kustomize" "kind" "helm" "yq" "operator-sdk" "istioctl" "clusteradm")
+declare -a EXPECTED_VERSIONS=("4.5.4" "0.17.0" "3.10.0" "4.30.8" "1.17.0" "1.28.0" "0.6.0")
+
+# Check if a binary is installed and has the expected version
+check_binary_version() {
+    local binary_name="$1"
+    local expected_version="$2"
+    local semver_pattern="$3"
+
+    # Check if the binary is installed
+    if ! command -v "$binary_name" &>/dev/null; then
+        echo "Error: $binary_name not found. Please install $binary_name and try again."
+        exit 1
+    fi
+
+    # Get the installed version using first binary version and after binary --version
+    # if it's not found then exit with an error
+    local version_output
+    version_output=$("$binary_name" version)
+
+    if [[ $version_output =~ $semver_pattern ]]; then
+        local installed_version="${BASH_REMATCH[0]}"
+    else
+        local dash_version_output
+        dash_version_output=$("$binary_name" --version)
+        if [[ $dash_version_output =~ $semver_pattern ]]; then
+            local installed_version="${BASH_REMATCH[0]}"
+        else
+          echo "Couldn't find version for $binary_name"
+          exit 1
+        fi
+    fi
+
+    # Verify version is greater than or equal to the expected version
+    if echo -e "$installed_version\n$expected_version" | sort -V -C; then
+        echo "Error: $binary_name version $expected_version or greater is required, but found $installed_version."
+        exit 1
+    fi
+
+    echo "$binary_name version is compatible: $installed_version"
+}
+
+for ((i = 0; i < ${#BINARY_NAMES[@]}; i++)); do
+    binary_name="${BINARY_NAMES[i]}"
+    expected_version="${EXPECTED_VERSIONS[i]}"
+    check_binary_version "$binary_name" "$expected_version" "[0-9]+\.[0-9]+\.[0-9]+"
+done
+
+echo "All binary versions are compatible."
+
 # Prompt user for any required env vars that have not been set
 if [[ -z "${AWS_ACCESS_KEY_ID}" ]]; then
   echo "Enter your AWS access key ID:"
