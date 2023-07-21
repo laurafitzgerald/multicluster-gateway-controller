@@ -261,31 +261,31 @@ check_binary_version() {
 
     # Check if the binary is installed
     if ! command -v "$binary_name" &>/dev/null; then
-        echo "Error: $binary_name not found. Please install $binary_name and try again."
+        echo "Error: $binary_name not found. Please review the pre-requisite versions in the documentation against your local version of $binary_name"
         exit 1
     fi
 
     # Get the installed version using first binary version and after binary --version
     # if it's not found then exit with an error
     local version_output
-    version_output=$("$binary_name" version)
+    version_output=$("$binary_name" version 2>/dev/null || true)
 
     if [[ $version_output =~ $semver_pattern ]]; then
         local installed_version="${BASH_REMATCH[0]}"
     else
         local dash_version_output
-        dash_version_output=$("$binary_name" --version)
+        dash_version_output=$("$binary_name" --version 2>/dev/null || true)
         if [[ $dash_version_output =~ $semver_pattern ]]; then
             local installed_version="${BASH_REMATCH[0]}"
         else
-          echo "Couldn't find version for $binary_name"
+          echo "Error: Couldn't verify version for $binary_name. Please review the pre-requisite binaries versions in the documentation against your local version of $binary_name"
           exit 1
         fi
     fi
 
     # Verify version is greater than or equal to the expected version
     if echo -e "$installed_version\n$expected_version" | sort -V -C; then
-        echo "Error: $binary_name version $expected_version or greater is required, but found $installed_version."
+        echo "Error: $binary_name version $expected_version or greater is required, but found $installed_version. Please review the pre-requisite binary versions in the documentation against your local version of $binary_name"
         exit 1
     fi
 
