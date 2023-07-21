@@ -251,7 +251,7 @@ EOF
 echo "Verifying that pre-requisite binaries are present on the system."
 
 declare -a BINARY_NAMES=("kustomize" "kind" "helm" "yq" "operator-sdk" "istioctl" "clusteradm")
-declare -a EXPECTED_VERSIONS=("4.5.4" "0.17.0" "3.10.0" "4.30.8" "1.17.0" "1.28.0" "0.6.0")
+declare -a EXPECTED_VERSIONS=("4.5.4" "0.17.0" "3.10.0" "4.30.8" "1.17.0" "1.18.1" "0.6.0")
 
 # Check if a binary is installed and has the expected version
 check_binary_version() {
