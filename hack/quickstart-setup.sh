@@ -284,7 +284,7 @@ check_binary_version() {
     fi
 
     # Verify version is greater than or equal to the expected version
-    if echo -e "$installed_version\n$expected_version" | sort -V -C; then
+    if ! echo -e "$expected_version\n$installed_version" | sort -V -C; then
         echo "Error: $binary_name version $expected_version or greater is required, but found $installed_version. Please review the pre-requisite binary versions in the documentation against your local version of $binary_name"
         exit 1
     fi
