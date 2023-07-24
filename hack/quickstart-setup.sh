@@ -211,7 +211,7 @@ kind: Secret
 metadata:
   name: ${KIND_CLUSTER_PREFIX}aws-credentials
   namespace: multi-cluster-gateways
-type: Opaque
+type: "kuadrant.io/aws"
 stringData:
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
