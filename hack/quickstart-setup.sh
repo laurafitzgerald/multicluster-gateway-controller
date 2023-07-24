@@ -304,22 +304,31 @@ echo "All binary versions are compatible."
 if [[ -z "${AWS_ACCESS_KEY_ID}" ]]; then
   echo "Enter your AWS access key ID:"
   read AWS_ACCESS_KEY_ID
+  echo "export AWS_ACCESS_KEY_ID for future executions of the script to skip this step"
 fi
 if [[ -z "${AWS_SECRET_ACCESS_KEY}" ]]; then
   echo "Enter your AWS secret access key:"
   read AWS_SECRET_ACCESS_KEY
+  echo "export AWS_SECRET_ACCESS_KEY for future executions of the script to skip this step"
+
 fi
 if [[ -z "${AWS_REGION}" ]]; then
   echo "Enter an AWS region (e.g. eu-west-1):"
   read AWS_REGION
+  echo "export AWS_REGION for future executions of the script to skip this step"
+
 fi
 if [[ -z "${AWS_DNS_PUBLIC_ZONE_ID}" ]]; then
   echo "Enter the Public Zone ID of your Route53 zone:"
   read AWS_DNS_PUBLIC_ZONE_ID
+  echo "export AWS_DNS_PUBLIC_ZONE_ID for future executions of the script to skip this step"
+
 fi
 if [[ -z "${ZONE_ROOT_DOMAIN}" ]]; then
   echo "Enter the root domain of your Route53 hosted zone (e.g. www.example.com):"
   read ZONE_ROOT_DOMAIN
+  echo "export ZONE_ROOT_DOMAIN for future executions of the script to skip this step"
+
 fi
 
 # Default config
