@@ -28,9 +28,9 @@ type MultiClusterGatewayTarget struct {
 	LoadBalancing         *v1alpha1.LoadBalancingSpec
 }
 
-func NewMultiClusterGatewayTarget(gateway *gatewayv1beta1.Gateway, clusterGateways []ClusterGateway, loadBalancing *v1alpha1.LoadBalancingSpec) (*MultiClusterGatewayTarget, error) {
+func NewMultiClusterGatewayTarget(gateway *gatewayv1beta1.Gateway, clusterGateways []ClusterGateway, loadBalancing *v1alpha1.LoadBalancingSpec, probes []*v1alpha1.DNSHealthCheckProbe) (*MultiClusterGatewayTarget, error) {
 	mcg := &MultiClusterGatewayTarget{Gateway: gateway, LoadBalancing: loadBalancing}
-	err := mcg.setClusterGatewayTargets(clusterGateways)
+	err := mcg.setClusterGatewayTargets(clusterGateways, probes)
 	return mcg, err
 }
 
@@ -65,14 +65,14 @@ func (t *MultiClusterGatewayTarget) GetDefaultWeight() int {
 	return DefaultWeight
 }
 
-func (t *MultiClusterGatewayTarget) setClusterGatewayTargets(clusterGateways []ClusterGateway) error {
+func (t *MultiClusterGatewayTarget) setClusterGatewayTargets(clusterGateways []ClusterGateway, probes []*v1alpha1.DNSHealthCheckProbe) error {
 	var cgTargets []ClusterGatewayTarget
 	for _, cg := range clusterGateways {
 		var customWeights []*v1alpha1.CustomWeight
 		if t.LoadBalancing != nil && t.LoadBalancing.Weighted != nil {
 			customWeights = t.LoadBalancing.Weighted.Custom
 		}
-		cgt, err := NewClusterGatewayTarget(cg, t.GetDefaultGeo(), t.GetDefaultWeight(), customWeights)
+		cgt, err := NewClusterGatewayTarget(cg, t.GetDefaultGeo(), t.GetDefaultWeight(), customWeights, probes)
 		if err != nil {
 			return err
 		}
@@ -109,11 +109,12 @@ func NewClusterGateway(cluster metav1.Object, gatewayAddresses []gatewayv1beta1.
 // ClusterGatewayTarget represents a cluster Gateway with geo and weighting info calculated
 type ClusterGatewayTarget struct {
 	*ClusterGateway
-	Geo    *GeoCode
-	Weight *int
+	Geo     *GeoCode
+	Weight  *int
+	Healthy *bool
 }
 
-func NewClusterGatewayTarget(cg ClusterGateway, defaultGeoCode GeoCode, defaultWeight int, customWeights []*v1alpha1.CustomWeight) (ClusterGatewayTarget, error) {
+func NewClusterGatewayTarget(cg ClusterGateway, defaultGeoCode GeoCode, defaultWeight int, customWeights []*v1alpha1.CustomWeight, probes []*v1alpha1.DNSHealthCheckProbe) (ClusterGatewayTarget, error) {
 	target := ClusterGatewayTarget{
 		ClusterGateway: &cg,
 	}
@@ -122,6 +123,7 @@ func NewClusterGatewayTarget(cg ClusterGateway, defaultGeoCode GeoCode, defaultW
 	if err != nil {
 		return ClusterGatewayTarget{}, err
 	}
+	target.setHealth(probes)
 	return target, nil
 }
 
@@ -169,6 +171,44 @@ func (t *ClusterGatewayTarget) setWeight(defaultWeight int, customWeights []*v1a
 	}
 	t.Weight = &weight
 	return nil
+}
+
+func (t *ClusterGatewayTarget) setHealth(probes []*v1alpha1.DNSHealthCheckProbe) {
+	targetProbes := t.getProbesForTarget(probes)
+	healthy := true
+	if len(targetProbes) == 0 {
+		t.Healthy = &healthy
+		return
+	}
+	healthy = false
+	for _, probe := range targetProbes {
+		for _, address := range t.GatewayAddresses {
+			if strings.Contains(probe.Name, address.Value) {
+				probeHealthy := true
+				if probe.Status.Healthy != nil {
+					probeHealthy = *probe.Status.Healthy
+				}
+				// if any probe for any target is reporting unhealthy remove it from the endpoint list
+				if probeHealthy && probe.Spec.FailureThreshold != nil && probe.Status.ConsecutiveFailures < *probe.Spec.FailureThreshold {
+					healthy = true
+				}
+			}
+		}
+	}
+	t.Healthy = &healthy
+	return
+}
+
+func (t *ClusterGatewayTarget) getProbesForTarget(probes []*v1alpha1.DNSHealthCheckProbe) []*v1alpha1.DNSHealthCheckProbe {
+	retProbes := []*v1alpha1.DNSHealthCheckProbe{}
+	for _, probe := range probes {
+		for _, addresses := range t.GatewayAddresses {
+			if strings.Contains(probe.Name, addresses.Value) {
+				retProbes = append(retProbes, probe)
+			}
+		}
+	}
+	return retProbes
 }
 
 func ToBase36hash(s string) string {

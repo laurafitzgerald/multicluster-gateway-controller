@@ -106,8 +106,11 @@ func (r *DNSPolicyReconciler) reconcileGatewayDNSRecords(ctx context.Context, ga
 				return fmt.Errorf("failed to get dns record for host %s : %s ", listener.Name, err)
 			}
 		}
-
-		mcgTarget, err := dns.NewMultiClusterGatewayTarget(gateway, clusterGateways, dnsPolicy.Spec.LoadBalancing)
+		probes, err := r.dnsHelper.getDNSHealthCheckProbes(ctx, gateway, dnsPolicy)
+		if err != nil {
+			return fmt.Errorf("failed to get probes for listener %s : %s ", listener.Name, err)
+		}
+		mcgTarget, err := dns.NewMultiClusterGatewayTarget(gateway, clusterGateways, dnsPolicy.Spec.LoadBalancing, probes)
 		if err != nil {
 			return fmt.Errorf("failed to create multi cluster gateway target for listener %s : %s ", listener.Name, err)
 		}

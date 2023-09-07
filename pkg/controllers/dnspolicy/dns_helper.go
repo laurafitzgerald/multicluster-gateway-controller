@@ -3,7 +3,6 @@ package dnspolicy
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -197,6 +196,10 @@ func (dh *dnsHelper) setEndpoints(ctx context.Context, mcgTarget *dns.MultiClust
 		geoLbName := strings.ToLower(fmt.Sprintf("%s.%s", geoCode, lbName))
 		var clusterEndpoints []*v1alpha1.Endpoint
 		for _, cgwTarget := range cgwTargets {
+			healthy := *cgwTarget.Healthy
+			if !healthy {
+				continue
+			}
 			var ipValues []string
 			var hostValues []string
 			for _, gwa := range cgwTarget.GatewayAddresses {
@@ -256,7 +259,7 @@ func (dh *dnsHelper) setEndpoints(ctx context.Context, mcgTarget *dns.MultiClust
 		return newEndpoints[i].SetID() < newEndpoints[j].SetID()
 	})
 
-	probes, err := dh.getDNSHealthCheckProbes(ctx, mcgTarget.Gateway, dnsPolicy)
+	/*probes, err := dh.getDNSHealthCheckProbes(ctx, mcgTarget.Gateway, dnsPolicy)
 	if err != nil {
 		return err
 	}
@@ -312,13 +315,13 @@ func (dh *dnsHelper) setEndpoints(ctx context.Context, mcgTarget *dns.MultiClust
 		}
 		removedEndpoints--
 	}
-
-	// if there are no healthy endpoints after checking, publish the full set before checks
-	if len(newEndpoints) == 0 {
-		dnsRecord.Spec.Endpoints = storeEndpoints
-	} else {
-		dnsRecord.Spec.Endpoints = newEndpoints
-	}
+	*/
+	/*	// if there are no healthy endpoints after checking, publish the full set before checks
+		if len(newEndpoints) == 0 {
+			dnsRecord.Spec.Endpoints = storeEndpoints
+		} else {*/
+	dnsRecord.Spec.Endpoints = newEndpoints
+	//}
 	if !equality.Semantic.DeepEqual(old, dnsRecord) {
 		return dh.Update(ctx, dnsRecord)
 	}
